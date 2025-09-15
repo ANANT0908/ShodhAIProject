@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/shodh
+    username: sa
+    password: sa
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+judge:
+  image: shodh-judge:latest
+  timeout-seconds: 3
+  memory-limit: 128m
+  cpus: 0.5
