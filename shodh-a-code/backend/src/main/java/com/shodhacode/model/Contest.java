@@ -1,22 +1,20 @@
 package com.shodhacode.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.*;
 import java.util.List;
 
 @Entity
 public class Contest {
 
     @Id
-    private String id;   // ✅ use String for IDs like "sample-101"
+    private String id;
 
     private String name;
 
-    @OneToMany(mappedBy = "contest")
+    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Problem> problems;
 
-    // Getters and Setters
+    // getters and setters
     public String getId() {
         return id;
     }

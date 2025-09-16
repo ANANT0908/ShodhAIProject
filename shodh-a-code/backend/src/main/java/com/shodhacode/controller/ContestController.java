@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.shodhacode.model.Contest;
 import com.shodhacode.model.Submission;
+import com.shodhacode.model.Problem;
 import com.shodhacode.repository.ContestRepository;
 import com.shodhacode.repository.SubmissionRepository;
 
@@ -23,6 +24,7 @@ public class ContestController {
     @Autowired
     private SubmissionRepository submissionRepository;
 
+    // existing endpoint
     @GetMapping("/contests/{contestId}")
     public ResponseEntity<Contest> getContest(@PathVariable("contestId") String contestId) {
         return contestRepository.findById(contestId)
@@ -30,6 +32,19 @@ public class ContestController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // NEW endpoint: return all problems for a contest
+    @GetMapping("/contests/{contestId}/problems")
+    public ResponseEntity<List<Problem>> getProblems(@PathVariable("contestId") String contestId) {
+        Optional<Contest> contestOpt = contestRepository.findById(contestId);
+        if (contestOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Contest contest = contestOpt.get();
+        // assuming Contest has a getProblems() method returning List<Problem>
+        return ResponseEntity.ok(contest.getProblems());
+    }
+
+    // existing leaderboard endpoint
     @GetMapping("/contests/{contestId}/leaderboard")
     public ResponseEntity<List<Map<String, Object>>> getLeaderboard(@PathVariable("contestId") String contestId) {
         if (!contestRepository.existsById(contestId)) {
@@ -64,4 +79,19 @@ public class ContestController {
 
         return ResponseEntity.ok(leaderboard);
     }
+
+    @PostMapping("/contests")
+    public ResponseEntity<Contest> addContest(@RequestBody Contest contest) {
+    if (contest.getName() == null || contest.getName().isEmpty()) {
+        return ResponseEntity.badRequest().build();
+    }
+
+    // Generate ID if null
+    if (contest.getId() == null || contest.getId().isEmpty()) {
+        contest.setId(java.util.UUID.randomUUID().toString());
+    }
+
+    Contest saved = contestRepository.save(contest);
+    return ResponseEntity.ok(saved);
+}
 }

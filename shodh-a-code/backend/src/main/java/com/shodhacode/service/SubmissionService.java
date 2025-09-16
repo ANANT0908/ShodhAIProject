@@ -61,7 +61,7 @@ public class SubmissionService {
         s.setUpdatedAt(Instant.now());
 
         Optional<Problem> pOpt = problemRepository.findById(req.getProblemId());
-        if (pOpt.isPresent()) s.setProblem(pOpt.get());
+        pOpt.ifPresent(s::setProblem);
         Submission saved = submissionRepository.save(s);
         queue.offer(saved.getId());
         return saved.getSubmissionUuid();
@@ -75,12 +75,16 @@ public class SubmissionService {
         s.setUpdatedAt(Instant.now());
         submissionRepository.save(s);
 
-        // run judge in separate thread (so consumer thread isn't blocked long)
         judgePool.submit(() -> {
             try {
                 Problem problem = s.getProblem();
                 List<TestCaseEntity> tests = problem.getTestCases();
-                JudgeResultDto result = judgeService.runSubmissionInDocker(s.getSubmissionUuid(), s.getLanguage(), s.getSourceCode(), tests);
+                JudgeResultDto result = judgeService.runSubmissionInDocker(
+                        s.getSubmissionUuid(),
+                        s.getLanguage(),
+                        s.getSourceCode(),
+                        tests
+                );
                 s.setStatus(result.getStatus());
                 s.setResultDetails(result.getDetails());
                 if (result.getPassedCount() != null && result.getTotalCount() != null) {

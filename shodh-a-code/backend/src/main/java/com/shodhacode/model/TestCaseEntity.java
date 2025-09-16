@@ -3,27 +3,33 @@ package com.shodhacode.model;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name="testcase")
+@Table(name = "test_cases")
 public class TestCaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="input_data", columnDefinition="text")
+    @Column(nullable = false)
     private String inputData;
 
-    @Column(name="expected_output", columnDefinition="text")
+    @Column(nullable = false)
     private String expectedOutput;
 
-    private boolean hidden;
+    @ManyToOne
+    @JoinColumn(name = "problem_id", nullable = false)
+    private Problem problem;
 
-    // getters/setters
-    public Long getId(){return id;}
-    public void setId(Long id){this.id = id;}
-    public String getInputData(){return inputData;}
-    public void setInputData(String inputData){this.inputData = inputData;}
-    public String getExpectedOutput(){return expectedOutput;}
-    public void setExpectedOutput(String expectedOutput){this.expectedOutput = expectedOutput;}
-    public boolean isHidden(){return hidden;}
-    public void setHidden(boolean hidden){this.hidden = hidden;}
+    // Getters and Setters
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getInputData() { return inputData; }
+    public void setInputData(String inputData) { this.inputData = inputData; }
+
+    public String getExpectedOutput() { return expectedOutput; }
+    public void setExpectedOutput(String expectedOutput) { this.expectedOutput = expectedOutput; }
+
+    public Problem getProblem() { return problem; }
+    public void setProblem(Problem problem) { this.problem = problem; }
 }
