@@ -24,6 +24,12 @@ public class ContestController {
     @Autowired
     private SubmissionRepository submissionRepository;
 
+     @GetMapping("/contests")
+    public ResponseEntity<List<Contest>> getAllContests() {
+        List<Contest> contests = contestRepository.findAll();
+        return ResponseEntity.ok(contests);
+    }
+
     // existing endpoint
     @GetMapping("/contests/{contestId}")
     public ResponseEntity<Contest> getContest(@PathVariable("contestId") String contestId) {
