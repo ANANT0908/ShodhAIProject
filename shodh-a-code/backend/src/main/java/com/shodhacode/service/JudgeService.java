@@ -1,3 +1,4 @@
+// File: backend/src/main/java/com/shodhacode/service/JudgeService.java
 package com.shodhacode.service;
 
 import com.shodhacode.dto.JudgeResultDto;
@@ -7,21 +8,9 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.nio.file.*;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-/**
- * JudgeService:
- * - Writes user source to a temp directory
- * - Invokes docker run of the judge image and runs compile+run commands inside it
- * - Enforces timeout and memory/cpu limits via docker flags
- *
- * NOTE:
- * - This simple implementation runs 'docker' CLI on the host where backend runs.
- * - Ensure the user running this backend has permission to run docker.
- * - For production, use hardened sandboxes (gVisor, Firecracker, or a dedicated judge service).
- */
 @Service
 public class JudgeService {
 
@@ -40,34 +29,42 @@ public class JudgeService {
     /**
      * Run a submission in Docker.
      *
+     * @param language       e.g. "java", "python"
+     * @param sourceCode     user code
      * @param submissionUuid unique id (used to create temp dir)
-     * @param language e.g. "java", "python"
-     * @param sourceCode user code
-     * @param testCases list of testcases
-     * @return JudgeResultDto
-     * @throws IOException
-     * @throws InterruptedException
+     * @param testCases      list of testcases
      */
-    public JudgeResultDto runSubmissionInDocker(String submissionUuid, String language, String sourceCode, List<TestCaseEntity> testCases) throws IOException, InterruptedException {
+    public JudgeResultDto runSubmissionInDocker(String language,
+                                                String sourceCode,
+                                                String submissionUuid,
+                                                List<TestCaseEntity> testCases) throws IOException, InterruptedException {
         Path tmpBase = Files.createTempDirectory("judge-" + submissionUuid);
         try {
-            // Map language to file name and commands
             String filename;
             String compileCmd = null;
-            String runCmd; // command executed inside container
+            String runCmd;
+
             if ("java".equalsIgnoreCase(language)) {
-                filename = "Main.java";
-                Files.writeString(tmpBase.resolve(filename), sourceCode, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                compileCmd = "javac Main.java";
-                runCmd = "java Main";
+                String className = "Main";
+                if (sourceCode.contains("public class Solution")) {
+                    className = "Solution";
+                }
+                filename = className + ".java";
+
+                Files.writeString(tmpBase.resolve(filename), sourceCode,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+
+                compileCmd = "javac " + filename;
+                runCmd = "java " + className;
             } else if ("python".equalsIgnoreCase(language) || "py".equalsIgnoreCase(language)) {
                 filename = "solution.py";
-                Files.writeString(tmpBase.resolve(filename), sourceCode, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(tmpBase.resolve(filename), sourceCode,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 runCmd = "python3 solution.py";
             } else {
-                // fallback - store code and try to run with 'bash'
                 filename = "script.txt";
-                Files.writeString(tmpBase.resolve(filename), sourceCode, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.writeString(tmpBase.resolve(filename), sourceCode,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                 runCmd = "cat script.txt";
             }
 
@@ -75,15 +72,13 @@ public class JudgeService {
             int total = testCases.size();
             StringBuilder combinedDetails = new StringBuilder();
 
-            // For each test, run inside docker to keep separation between runs (simple approach)
             for (TestCaseEntity tc : testCases) {
-                // Build docker command: mount tmpBase to /workspace, workdir /workspace
                 List<String> cmd = new ArrayList<>();
                 cmd.add("docker");
                 cmd.add("run");
                 cmd.add("--rm");
                 cmd.add("--network");
-                cmd.add("none"); // disable network for safety
+                cmd.add("none");
                 cmd.add("--memory");
                 cmd.add(memoryLimit);
                 cmd.add("--cpus");
@@ -93,57 +88,55 @@ public class JudgeService {
                 cmd.add("-w");
                 cmd.add("/workspace");
                 cmd.add(judgeImage);
-                // Compose final inner command: optionally compile, then run with timeout
-                String inner;
+
+                // Build execution inside container
+                StringBuilder inner = new StringBuilder();
                 if (compileCmd != null) {
-                    // compile then run for single test
-                    inner = String.format("%s && timeout %ds /bin/bash -c '%s'", compileCmd, timeoutSeconds, runCmd);
-                } else {
-                    inner = String.format("timeout %ds /bin/bash -c '%s'", timeoutSeconds, runCmd);
+                    inner.append(compileCmd).append(" || exit 1; "); // stop if compile fails
                 }
-                // use /bin/bash -c to run sequence
+                inner.append("timeout ").append(timeoutSeconds)
+                        .append("s /bin/bash -c '").append(runCmd).append("'");
+
                 cmd.add("/bin/bash");
                 cmd.add("-lc");
-                cmd.add(inner);
+                cmd.add(inner.toString());
 
                 ProcessBuilder pb = new ProcessBuilder(cmd);
-                // Important: redirect error stream to capture all output
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
 
-                // write stdin
+                // Feed input
                 try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(p.getOutputStream()))) {
-                    writer.write(tc.getInputData() == null ? "" : tc.getInputData());
-                    writer.flush();
-                } catch (IOException e) {
-                    // ignore if pipe closed
+                    if (tc.getInputData() != null) {
+                        writer.write(tc.getInputData());
+                    }
                 }
 
                 boolean finished = p.waitFor(timeoutSeconds + 2L, TimeUnit.SECONDS);
                 String output;
                 if (!finished) {
                     p.destroyForcibly();
-                    output = "TIMEOUT or KILLED\n";
-                    combinedDetails.append("Testcase input:\n").append(tc.getInputData()).append("\nResult: TIMEOUT\n\n");
+                    output = "TIMEOUT\n";
+                    combinedDetails.append("Input:\n").append(tc.getInputData())
+                            .append("\nResult: TIMEOUT\n\n");
                 } else {
                     try (InputStream is = p.getInputStream()) {
                         output = new String(is.readAllBytes());
                     }
-                    // normalize outputs (trim endings)
                     String actual = normalize(output);
                     String expected = normalize(tc.getExpectedOutput());
                     if (actual.equals(expected)) {
                         passed++;
                         combinedDetails.append("Testcase passed\n");
                     } else {
-                        combinedDetails.append("Testcase failed\n");
-                        combinedDetails.append("Input:\n").append(tc.getInputData()).append("\n");
-                        combinedDetails.append("Expected:\n").append(tc.getExpectedOutput()).append("\n");
-                        combinedDetails.append("Actual:\n").append(output).append("\n");
+                        combinedDetails.append("Testcase failed\n")
+                                .append("Input:\n").append(tc.getInputData()).append("\n")
+                                .append("Expected:\n").append(expected).append("\n")
+                                .append("Actual:\n").append(actual).append("\n");
                     }
                     combinedDetails.append("\n---\n");
                 }
-            } // end for each test
+            }
 
             String status;
             if (passed == total) {
@@ -156,19 +149,12 @@ public class JudgeService {
 
             return new JudgeResultDto(status, combinedDetails.toString(), passed, total);
         } finally {
-            // cleanup: delete temp dir
-            try {
-                deleteDirectoryRecursively(tmpBase);
-            } catch (IOException ex) {
-                // log warning but not fail
-                ex.printStackTrace();
-            }
+            deleteDirectoryRecursively(tmpBase);
         }
     }
 
     private String normalize(String s) {
         if (s == null) return "";
-        // normalize newlines and trim trailing spaces on lines
         String[] lines = s.replace("\r", "").split("\n");
         StringBuilder b = new StringBuilder();
         for (String line : lines) {

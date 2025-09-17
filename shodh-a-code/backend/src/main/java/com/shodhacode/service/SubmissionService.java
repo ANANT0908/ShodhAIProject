@@ -1,3 +1,4 @@
+// File: backend/src/main/java/com/shodhacode/service/SubmissionService.java
 package com.shodhacode.service;
 
 import com.shodhacode.model.Problem;
@@ -5,7 +6,6 @@ import com.shodhacode.model.Submission;
 import com.shodhacode.model.User;
 import com.shodhacode.repository.ProblemRepository;
 import com.shodhacode.repository.SubmissionRepository;
-import com.shodhacode.service.JudgeService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -55,7 +55,7 @@ public class SubmissionService {
         Submission submission = new Submission();
         submission.setProblem(problem);
         submission.setUser(user);
-        submission.setLanguage(language);
+        submission.setLanguage(language);   // ✅ trust client-provided language
         submission.setSourceCode(sourceCode);
         submission.setStatus("Pending");
 
@@ -82,24 +82,28 @@ public class SubmissionService {
             submissionRepository.save(s);
 
             var problem = s.getProblem();
+
+            // 🔥 Normalize escaped characters from JSON payload
+            String normalizedSource = s.getSourceCode()
+                    .replace("\\r\\n", "\n")
+                    .replace("\\n", "\n")
+                    .replaceAll("\r", "");
+            s.setSourceCode(normalizedSource);
+
+            // ✅ Correct parameter order (language, sourceCode, submissionUuid, testCases)
             var result = judgeService.runSubmissionInDocker(
                     s.getLanguage(),
-                    s.getSourceCode(),
-                    String.valueOf(problem.getId()),   // use ID as identifier
+                    normalizedSource,
+                    String.valueOf(s.getId()),
                     problem.getTestCases()
             );
 
             s.setStatus(result.getStatus());
-
-            // Score assignment (basic: Accepted = 100, else = 0)
-            if ("Accepted".equalsIgnoreCase(result.getStatus())) {
-                s.setScore(100);
-            } else {
-                s.setScore(0);
-            }
+            s.setScore("Accepted".equalsIgnoreCase(result.getStatus()) ? 100 : 0);
 
             submissionRepository.save(s);
         } catch (Exception e) {
+            e.printStackTrace(); // ✅ log for debugging
             s.setStatus("Error");
             s.setScore(0);
             submissionRepository.save(s);
