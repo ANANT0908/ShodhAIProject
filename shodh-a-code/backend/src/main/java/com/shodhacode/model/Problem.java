@@ -1,5 +1,6 @@
 package com.shodhacode.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import java.util.List;
 
@@ -16,6 +17,7 @@ public class Problem {
 
     @ManyToOne
     @JoinColumn(name = "contest_id")
+    @JsonBackReference   // 🔑 Prevents infinite recursion in JSON
     private Contest contest;
 
     @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)

@@ -1,108 +1,134 @@
-// File: pages/contests/[id]/index.jsx
+// File: frontend/pages/contests/[id]/problems.js
 import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
-import { fetchProblems } from '../../../lib/api'
+import { fetchProblems, submitCode, fetchSubmission, fetchLeaderboard } from '../../../lib/api'
 import CodeEditor from '../../../components/CodeEditor'
+import SubmissionStatus from '../../../components/SubmissionStatus'
 
-export default function ContestProblems(){
+export default function ContestProblems() {
   const router = useRouter()
   const { id } = router.query
+
   const [problems, setProblems] = useState([])
   const [selected, setSelected] = useState(null)
   const [editorCode, setEditorCode] = useState('')
+  const [status, setStatus] = useState(null)
+  const [leaderboard, setLeaderboard] = useState([])
 
-  useEffect(()=>{
-    if(!id) return
-    fetchProblems(id).then(p=>{
-      setProblems(p || [])
-      if(p && p.length > 0 && !selected){
-        setSelected(p[0])
-        setEditorCode(getStarterCodeForProblem(p[0]))
-      }
-    }).catch(e=>console.error(e))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[id])
+  // Load problems
+  useEffect(() => {
+    if (!id) return
+    fetchProblems(id).then(setProblems).catch(console.error)
+  }, [id])
 
-  function openProblem(pr){
+  // Leaderboard polling every 20s
+  useEffect(() => {
+    if (!id) return
+    const load = () => fetchLeaderboard(id).then(setLeaderboard).catch(console.error)
+    load()
+    const interval = setInterval(load, 20000)
+    return () => clearInterval(interval)
+  }, [id])
+
+  function openProblem(pr) {
     setSelected(pr)
     setEditorCode(getStarterCodeForProblem(pr))
   }
 
-  function getStarterCodeForProblem(pr){
-    // minimal starter template — edit as you wish
-    return `// Problem: ${pr?.title || ''}\n// Slug: ${pr?.slug || ''}\n\npublic class Solution {\n  public static void main(String[] args) {\n    // write your solution here\n  }\n}\n`
+  function getStarterCodeForProblem(pr) {
+    return `// Problem: ${pr?.title || ''}\n\npublic class Solution {\n  public static void main(String[] args) {\n    // write your solution here\n  }\n}`
+  }
+
+  // Submit code
+  async function handleSubmit() {
+    if (!selected) return
+    const username = localStorage.getItem('username') || 'guest'
+    try {
+      const res = await submitCode({
+        contestId: id,
+        problemId: selected.id,
+        language: 'java',
+        sourceCode: editorCode,
+        username
+      })
+      const subId = res.submissionId || res.submissionUuid
+      setStatus('Pending')
+      pollStatus(subId)
+    } catch (err) {
+      console.error(err)
+      alert('Submission failed')
+    }
+  }
+
+  // Poll status until final
+  function pollStatus(subId) {
+    let tries = 0
+    const interval = setInterval(async () => {
+      try {
+        const s = await fetchSubmission(subId)
+        setStatus(s.status)
+        if (['Accepted', 'Wrong Answer', 'Error'].includes(s.status)) {
+          clearInterval(interval)
+        }
+      } catch (e) {
+        console.error(e)
+        clearInterval(interval)
+      }
+      tries++
+      if (tries > 30) clearInterval(interval) // stop after ~1min
+    }, 3000)
   }
 
   return (
-    <div style={{display:'flex',gap:16,alignItems:'flex-start'}}>
+    <div style={{display:'flex', gap:16, alignItems:'flex-start'}}>
+      {/* Problems List */}
       <div style={{width:320}}>
-        <div className="card">
-          <h3>Problems in {id}</h3>
-          <p className="muted">Click to open problem</p>
-        </div>
-
+        <div className="card"><h3>Problems</h3></div>
         <div style={{marginTop:12, display:'grid', gap:8}}>
-          {problems.length === 0 ? (
-            <div className="card muted">No problems</div>
-          ) : problems.map(pr => (
-            <div
-              className={`card ${selected?.id === pr.id ? 'selected' : ''}`}
-              key={pr.id}
-              style={{cursor:'pointer'}}
-              onClick={()=>openProblem(pr)}
-            >
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                <div>
-                  <div style={{fontWeight:700}}>{pr.title}</div>
-                  <div className="muted small">{pr.slug}</div>
-                </div>
-                <div style={{opacity:0.8,fontSize:12}}>{selected?.id === pr.id ? 'Open' : 'Open'}</div>
-              </div>
+          {problems.map(pr => (
+            <div key={pr.id} className={`card ${selected?.id === pr.id ? 'selected' : ''}`} onClick={() => openProblem(pr)} style={{cursor:'pointer'}}>
+              <div style={{fontWeight:700}}>{pr.title}</div>
+              <div className="muted small">{pr.slug}</div>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Editor + status */}
       <div style={{flex:1}}>
-        {!selected ? (
-          <div className="card muted">Select a problem to open the editor</div>
-        ) : (
+        {!selected ? <div className="card muted">Select a problem</div> : (
           <>
             <div className="card">
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12}}>
-                <div>
-                  <h3 style={{margin:0}}>{selected.title}</h3>
-                  <div className="muted small" style={{marginTop:6}}>{selected.slug}</div>
-                </div>
-                <div style={{minWidth:220, textAlign:'right'}}>
-                  <div style={{marginBottom:8}}>
-                    <strong>Problem ID:</strong> {selected.id}
-                  </div>
-                </div>
-              </div>
-              <div style={{marginTop:12, whiteSpace:'pre-wrap'}} className="muted small">
-                {selected.statement}
-              </div>
+              <h3>{selected.title}</h3>
+              <div className="muted small">{selected.statement}</div>
             </div>
-
             <div style={{marginTop:12}}>
-              <CodeEditor
-                value={editorCode}
-                onChange={setEditorCode}
-                language="java"
-              />
-
-              <div style={{display:'flex',gap:8,marginTop:8}}>
-                <button className="btn" onClick={()=>console.log('Run (stub) — code:', editorCode)}>
-                  Run (stub)
-                </button>
-                <button className="btn" onClick={()=>console.log('Submit (stub) — code:', editorCode)}>
-                  Submit (stub)
-                </button>
+              <CodeEditor value={editorCode} onChange={setEditorCode} language="java"/>
+              <div style={{display:'flex', gap:8, marginTop:8}}>
+                <button className="btn" onClick={handleSubmit}>Submit</button>
+                {status && <SubmissionStatus status={status}/>}
               </div>
             </div>
           </>
         )}
+      </div>
+
+      {/* Leaderboard */}
+      <div style={{width:280}}>
+        <div className="card">
+          <h3>Leaderboard</h3>
+          {leaderboard.length === 0 ? (
+            <p className="muted small">No data</p>
+          ) : (
+            <ul>
+              {leaderboard.map((row, idx) => (
+                <li key={idx} style={{marginBottom:6}}>
+                  <strong>{row.username}</strong> — {row.score}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   )

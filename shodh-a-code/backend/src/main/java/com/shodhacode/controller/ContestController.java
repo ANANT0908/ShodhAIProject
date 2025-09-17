@@ -24,13 +24,12 @@ public class ContestController {
     @Autowired
     private SubmissionRepository submissionRepository;
 
-     @GetMapping("/contests")
+    @GetMapping("/contests")
     public ResponseEntity<List<Contest>> getAllContests() {
         List<Contest> contests = contestRepository.findAll();
         return ResponseEntity.ok(contests);
     }
 
-    // existing endpoint
     @GetMapping("/contests/{contestId}")
     public ResponseEntity<Contest> getContest(@PathVariable("contestId") Long contestId) {
         return contestRepository.findById(contestId)
@@ -38,7 +37,6 @@ public class ContestController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
-    // NEW endpoint: return all problems for a contest
     @GetMapping("/contests/{contestId}/problems")
     public ResponseEntity<List<Problem>> getProblems(@PathVariable("contestId") Long contestId) {
         Optional<Contest> contestOpt = contestRepository.findById(contestId);
@@ -46,33 +44,31 @@ public class ContestController {
             return ResponseEntity.notFound().build();
         }
         Contest contest = contestOpt.get();
-        // assuming Contest has a getProblems() method returning List<Problem>
         return ResponseEntity.ok(contest.getProblems());
     }
 
-    // existing leaderboard endpoint
     @GetMapping("/contests/{contestId}/leaderboard")
     public ResponseEntity<List<Map<String, Object>>> getLeaderboard(@PathVariable("contestId") Long contestId) {
         if (!contestRepository.existsById(contestId)) {
             return ResponseEntity.notFound().build();
         }
 
-        // Fetch all submissions and filter by contest ID via problem.contest.id
+        // Fetch all submissions, filter by contest ID
         List<Submission> submissions = submissionRepository.findAll().stream()
                 .filter(s -> s.getProblem() != null
                         && s.getProblem().getContest() != null
                         && Objects.equals(s.getProblem().getContest().getId(), contestId))
                 .collect(Collectors.toList());
 
-        // Aggregate scores by username
+        // Aggregate scores by user
         Map<String, Integer> scores = new HashMap<>();
         for (Submission s : submissions) {
-            String username = s.getUsername();
-            Integer sc = (s.getScore() != null) ? s.getScore() : 0;
+            String username = (s.getUser() != null) ? s.getUser().getUsername() : "unknown";
+            int sc = (s.getScore() != null) ? s.getScore() : 0;
             scores.merge(username, sc, Integer::sum);
         }
 
-        // Sort leaderboard by score (desc)
+        // Sort leaderboard
         List<Map<String, Object>> leaderboard = scores.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue(Comparator.reverseOrder()))
                 .map(entry -> {
@@ -87,14 +83,11 @@ public class ContestController {
     }
 
     @PostMapping("/contests")
-        public ResponseEntity<Contest> addContest(@RequestBody Contest contest) {
-        // Validate name
+    public ResponseEntity<Contest> addContest(@RequestBody Contest contest) {
         if (contest.getName() == null || contest.getName().isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
-
-        // No need to set ID manually; JPA will generate it
         Contest saved = contestRepository.save(contest);
         return ResponseEntity.ok(saved);
-}
+    }
 }

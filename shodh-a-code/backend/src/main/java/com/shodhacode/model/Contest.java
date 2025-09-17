@@ -1,5 +1,6 @@
 package com.shodhacode.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.util.List;
 
@@ -7,14 +8,16 @@ import java.util.List;
 public class Contest {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // ✅ Let JPA handle IDs
     private Long id;
 
     private String name;
 
-    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "contest", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonManagedReference   // 🔑 Pairs with @JsonBackReference in Problem
     private List<Problem> problems;
 
-    // getters and setters
+    // Getters and Setters
     public Long getId() {
         return id;
     }

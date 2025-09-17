@@ -1,28 +1,21 @@
 package com.shodhacode.service;
 
-import com.shodhacode.dto.SubmitRequest;
-import com.shodhacode.dto.JudgeResultDto;
 import com.shodhacode.model.Problem;
 import com.shodhacode.model.Submission;
-import com.shodhacode.model.TestCaseEntity;
+import com.shodhacode.model.User;
 import com.shodhacode.repository.ProblemRepository;
 import com.shodhacode.repository.SubmissionRepository;
+import com.shodhacode.service.JudgeService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class SubmissionService {
-
-    private final BlockingQueue<Long> queue = new LinkedBlockingQueue<>();
-    private final ExecutorService consumerPool = Executors.newSingleThreadExecutor();
-    private final ExecutorService judgePool = Executors.newFixedThreadPool(2);
 
     @Autowired
     private SubmissionRepository submissionRepository;
@@ -33,74 +26,83 @@ public class SubmissionService {
     @Autowired
     private JudgeService judgeService;
 
+    private final BlockingQueue<Submission> queue = new LinkedBlockingQueue<>();
+    private ExecutorService judgePool;
+    private Thread consumerThread;
+
     @PostConstruct
     public void init() {
-        consumerPool.submit(() -> {
-            while (true) {
-                try {
-                    Long submissionId = queue.take();
-                    processSubmission(submissionId);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
+        judgePool = Executors.newFixedThreadPool(2, new ThreadFactory() {
+            private final AtomicInteger count = new AtomicInteger(1);
+
+            @Override
+            public Thread newThread(Runnable r) {
+                return new Thread(r, "judge-worker-" + count.getAndIncrement());
             }
         });
+
+        consumerThread = new Thread(this::consumeLoop, "submission-consumer");
+        consumerThread.start();
     }
 
-    public String enqueueSubmission(SubmitRequest req) {
-        Submission s = new Submission();
-        s.setSubmissionUuid(UUID.randomUUID().toString());
-        s.setUsername(req.getUsername());
-        s.setLanguage(req.getLanguage());
-        s.setSourceCode(req.getSourceCode());
-        s.setStatus("Pending");
-        s.setCreatedAt(Instant.now());
-        s.setUpdatedAt(Instant.now());
+    /**
+     * Enqueue a submission for judging.
+     */
+    public Submission enqueueSubmission(Long problemId, User user, String language, String sourceCode) {
+        Problem problem = problemRepository.findById(problemId)
+                .orElseThrow(() -> new RuntimeException("Problem not found"));
 
-        Optional<Problem> pOpt = problemRepository.findById(req.getProblemId());
-        pOpt.ifPresent(s::setProblem);
-        Submission saved = submissionRepository.save(s);
-        queue.offer(saved.getId());
-        return saved.getSubmissionUuid();
+        Submission submission = new Submission();
+        submission.setProblem(problem);
+        submission.setUser(user);
+        submission.setLanguage(language);
+        submission.setSourceCode(sourceCode);
+        submission.setStatus("Pending");
+
+        Submission saved = submissionRepository.save(submission);
+        queue.offer(saved);
+        return saved;
     }
 
-    private void processSubmission(Long id) {
-        Optional<Submission> opt = submissionRepository.findById(id);
-        if (opt.isEmpty()) return;
-        Submission s = opt.get();
-        s.setStatus("Running");
-        s.setUpdatedAt(Instant.now());
-        submissionRepository.save(s);
-
-        judgePool.submit(() -> {
+    private void consumeLoop() {
+        while (true) {
             try {
-                Problem problem = s.getProblem();
-                List<TestCaseEntity> tests = problem.getTestCases();
-                JudgeResultDto result = judgeService.runSubmissionInDocker(
-                        s.getSubmissionUuid(),
-                        s.getLanguage(),
-                        s.getSourceCode(),
-                        tests
-                );
-                s.setStatus(result.getStatus());
-                s.setResultDetails(result.getDetails());
-                if (result.getPassedCount() != null && result.getTotalCount() != null) {
-                    s.setScore(result.getPassedCount() * 100 / Math.max(1, result.getTotalCount()));
-                }
-            } catch (Exception e) {
-                s.setStatus("Error");
-                s.setResultDetails(e.getMessage());
-            } finally {
-                s.setUpdatedAt(Instant.now());
-                submissionRepository.save(s);
+                Submission submission = queue.take();
+                judgePool.submit(() -> processSubmission(submission));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
             }
-        });
+        }
     }
 
-    public Optional<Submission> findByUuid(String uuid) {
-        return submissionRepository.findBySubmissionUuid(uuid);
+    private void processSubmission(Submission s) {
+        try {
+            s.setStatus("Running");
+            submissionRepository.save(s);
+
+            var problem = s.getProblem();
+            var result = judgeService.runSubmissionInDocker(
+                    s.getLanguage(),
+                    s.getSourceCode(),
+                    String.valueOf(problem.getId()),   // use ID as identifier
+                    problem.getTestCases()
+            );
+
+            s.setStatus(result.getStatus());
+
+            // Score assignment (basic: Accepted = 100, else = 0)
+            if ("Accepted".equalsIgnoreCase(result.getStatus())) {
+                s.setScore(100);
+            } else {
+                s.setScore(0);
+            }
+
+            submissionRepository.save(s);
+        } catch (Exception e) {
+            s.setStatus("Error");
+            s.setScore(0);
+            submissionRepository.save(s);
+        }
     }
 }
