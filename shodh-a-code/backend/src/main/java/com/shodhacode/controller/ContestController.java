@@ -32,7 +32,7 @@ public class ContestController {
 
     // existing endpoint
     @GetMapping("/contests/{contestId}")
-    public ResponseEntity<Contest> getContest(@PathVariable("contestId") String contestId) {
+    public ResponseEntity<Contest> getContest(@PathVariable("contestId") Long contestId) {
         return contestRepository.findById(contestId)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
@@ -40,7 +40,7 @@ public class ContestController {
 
     // NEW endpoint: return all problems for a contest
     @GetMapping("/contests/{contestId}/problems")
-    public ResponseEntity<List<Problem>> getProblems(@PathVariable("contestId") String contestId) {
+    public ResponseEntity<List<Problem>> getProblems(@PathVariable("contestId") Long contestId) {
         Optional<Contest> contestOpt = contestRepository.findById(contestId);
         if (contestOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
@@ -52,7 +52,7 @@ public class ContestController {
 
     // existing leaderboard endpoint
     @GetMapping("/contests/{contestId}/leaderboard")
-    public ResponseEntity<List<Map<String, Object>>> getLeaderboard(@PathVariable("contestId") String contestId) {
+    public ResponseEntity<List<Map<String, Object>>> getLeaderboard(@PathVariable("contestId") Long contestId) {
         if (!contestRepository.existsById(contestId)) {
             return ResponseEntity.notFound().build();
         }
