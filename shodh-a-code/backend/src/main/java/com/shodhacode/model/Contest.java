@@ -7,7 +7,7 @@ import java.util.List;
 public class Contest {
 
     @Id
-    private String id;
+    private Long id;
 
     private String name;
 
@@ -15,11 +15,11 @@ public class Contest {
     private List<Problem> problems;
 
     // getters and setters
-    public String getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(String id) {
+    public void setId(Long id) {
         this.id = id;
     }
 

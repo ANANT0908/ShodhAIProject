@@ -87,17 +87,14 @@ public class ContestController {
     }
 
     @PostMapping("/contests")
-    public ResponseEntity<Contest> addContest(@RequestBody Contest contest) {
-    if (contest.getName() == null || contest.getName().isEmpty()) {
-        return ResponseEntity.badRequest().build();
-    }
+        public ResponseEntity<Contest> addContest(@RequestBody Contest contest) {
+        // Validate name
+        if (contest.getName() == null || contest.getName().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
 
-    // Generate ID if null
-    if (contest.getId() == null || contest.getId().isEmpty()) {
-        contest.setId(java.util.UUID.randomUUID().toString());
-    }
-
-    Contest saved = contestRepository.save(contest);
-    return ResponseEntity.ok(saved);
+        // No need to set ID manually; JPA will generate it
+        Contest saved = contestRepository.save(contest);
+        return ResponseEntity.ok(saved);
 }
 }
