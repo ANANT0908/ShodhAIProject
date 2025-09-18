@@ -1,20 +1,18 @@
-# Minimal judge execution image
-# Supports Java (javac/java) and Python (python3) for simple contest runs.
+# Use OpenJDK as base image
 FROM openjdk:17-jdk-slim
 
-# Install bash and python3 and utilities
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install additional tools needed for judging
+RUN apt-get update && apt-get install -y \
+    timeout \
     bash \
-    python3 \
-    python3-pip \
-    ca-certificates \
-    procps \
+    coreutils \
     && rm -rf /var/lib/apt/lists/*
 
+# Set working directory
 WORKDIR /workspace
 
-# Create a non-root user to run submissions (optional - but we keep root for simplicity here)
-# Expose nothing. JudgeService will mount host workspace into /workspace.
+# Verify Java installation
+RUN java -version && javac -version
 
-# Minimal entrypoint: keep /bin/bash available for -c commands from JudgeService
+# Default command
 CMD ["/bin/bash"]

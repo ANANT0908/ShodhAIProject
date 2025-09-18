@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
+import org.apache.commons.text.StringEscapeUtils;
 import jakarta.annotation.PostConstruct;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -107,10 +107,8 @@ public class SubmissionService {
             }
 
             // Normalize escaped characters from JSON payload
-            String normalizedSource = (s.getSourceCode() == null) ? "" : s.getSourceCode()
-                    .replace("\\r\\n", "\n")
-                    .replace("\\n", "\n")
-                    .replaceAll("\r", "");
+            String sourceCode = s.getSourceCode();
+            String normalizedSource = (sourceCode == null) ? "" : StringEscapeUtils.unescapeJson(sourceCode);
             s.setSourceCode(normalizedSource);
             submissionRepository.save(s); // persist normalized source
 
@@ -122,6 +120,7 @@ public class SubmissionService {
                     problemWithTC.getTestCases()
             );
 
+            // Use judge-provided status directly (keep behavior identical to original)
             s.setStatus(result.getStatus());
             s.setScore("Accepted".equalsIgnoreCase(result.getStatus()) ? 100 : 0);
 

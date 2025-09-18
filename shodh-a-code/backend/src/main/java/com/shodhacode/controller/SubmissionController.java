@@ -1,5 +1,5 @@
 package com.shodhacode.controller;
-
+import com.shodhacode.dto.SubmissionRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -30,18 +30,17 @@ public class SubmissionController {
      * Create a new submission
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createSubmission(@RequestBody Map<String, Object> body) {
-        try {
-            Long problemId = Long.valueOf(body.get("problemId").toString());
-            String language = body.get("language").toString();
-            String sourceCode = body.get("sourceCode").toString();
-            String username = body.get("username").toString();
+    public ResponseEntity<Map<String, Object>> createSubmission(@RequestBody SubmissionRequest body) {
+    try {
+        User user = userRepository.findByUsername(body.getUsername())
+                .orElseGet(() -> userRepository.save(new User(body.getUsername())));
 
-            // Find or create user
-            User user = userRepository.findByUsername(username)
-                    .orElseGet(() -> userRepository.save(new User(username)));
-
-            Submission submission = submissionService.enqueueSubmission(problemId, user, language, sourceCode);
+        Submission submission = submissionService.enqueueSubmission(
+                body.getProblemId(),
+                user,
+                body.getLanguage(),
+                body.getSourceCode()
+        );
 
             Map<String, Object> response = new HashMap<>();
             response.put("submissionId", submission.getId());
