@@ -1,23 +1,25 @@
 package com.shodhacode.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "test_cases")
+@Table(name = "testcase") // ✅ match your DB table
 public class TestCaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(name = "input_data", nullable = false)
     private String inputData;
 
-    @Column(nullable = false)
+    @Column(name = "expected_output", nullable = false)
     private String expectedOutput;
 
     @ManyToOne
     @JoinColumn(name = "problem_id", nullable = false)
+    @JsonBackReference // 🔑 Prevents recursion back into Problem
     private Problem problem;
 
     // Getters and Setters

@@ -1,6 +1,7 @@
 package com.shodhacode.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.util.List;
 
@@ -16,11 +17,17 @@ public class Problem {
     private String description;
 
     @ManyToOne
-    @JoinColumn(name = "contest_id")
-    @JsonBackReference   // 🔑 Prevents infinite recursion in JSON
+    @JoinColumn(name = "contest_id", nullable = false)
+    @JsonBackReference // 🔑 Prevents infinite recursion with Contest
     private Contest contest;
 
-    @OneToMany(mappedBy = "problem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(
+        mappedBy = "problem",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true,
+        fetch = FetchType.LAZY
+    )
+    @JsonManagedReference // 🔑 Pairs with @JsonBackReference in TestCaseEntity
     private List<TestCaseEntity> testCases;
 
     // Getters and Setters

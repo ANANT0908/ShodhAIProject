@@ -44,7 +44,6 @@ public class JudgeService {
             String compileCmd = null;
             String runCmd;
 
-            if ("java".equalsIgnoreCase(language)) {
                 String className = "Main";
                 if (sourceCode.contains("public class Solution")) {
                     className = "Solution";
@@ -56,17 +55,7 @@ public class JudgeService {
 
                 compileCmd = "javac " + filename;
                 runCmd = "java " + className;
-            } else if ("python".equalsIgnoreCase(language) || "py".equalsIgnoreCase(language)) {
-                filename = "solution.py";
-                Files.writeString(tmpBase.resolve(filename), sourceCode,
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                runCmd = "python3 solution.py";
-            } else {
-                filename = "script.txt";
-                Files.writeString(tmpBase.resolve(filename), sourceCode,
-                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-                runCmd = "cat script.txt";
-            }
+            
 
             int passed = 0;
             int total = testCases.size();
