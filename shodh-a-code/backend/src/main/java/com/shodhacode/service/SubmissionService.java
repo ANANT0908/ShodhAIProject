@@ -1,4 +1,3 @@
-// File: backend/src/main/java/com/shodhacode/service/SubmissionService.java
 package com.shodhacode.service;
 
 import com.shodhacode.model.Problem;
@@ -6,16 +5,21 @@ import com.shodhacode.model.Submission;
 import com.shodhacode.model.User;
 import com.shodhacode.repository.ProblemRepository;
 import com.shodhacode.repository.SubmissionRepository;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class SubmissionService {
+
+    private static final Logger log = LoggerFactory.getLogger(SubmissionService.class);
 
     @Autowired
     private SubmissionRepository submissionRepository;
@@ -55,7 +59,7 @@ public class SubmissionService {
         Submission submission = new Submission();
         submission.setProblem(problem);
         submission.setUser(user);
-        submission.setLanguage(language);   // ✅ trust client-provided language
+        submission.setLanguage(language);   // trust client-provided language
         submission.setSourceCode(sourceCode);
         submission.setStatus("Pending");
 
@@ -68,7 +72,7 @@ public class SubmissionService {
         while (true) {
             try {
                 Submission submission = queue.take();
-                judgePool.submit(() -> processSubmission(submission));
+                judgePool.submit(() -> processSubmissionTask(submission));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 break;
@@ -76,37 +80,73 @@ public class SubmissionService {
         }
     }
 
-    private void processSubmission(Submission s) {
+    /**
+     * This method runs inside a worker thread. It re-loads the Problem with its testCases
+     * (JOIN FETCH) to avoid LazyInitializationException before passing test cases to the JudgeService.
+     */
+    private void processSubmissionTask(Submission s) {
         try {
+            log.info("Processing submission id={}", s.getId());
             s.setStatus("Running");
             submissionRepository.save(s);
 
-            var problem = s.getProblem();
+            // Re-load problem with testCases initialized in one query.
+            Long problemId = s.getProblem() != null ? s.getProblem().getId() : null;
+            if (problemId == null) {
+                markSubmissionError(s, "Problem reference missing on submission");
+                return;
+            }
 
-            // 🔥 Normalize escaped characters from JSON payload
-            String normalizedSource = s.getSourceCode()
+            Problem problemWithTC = problemRepository.findByIdWithTestCases(problemId)
+                    .orElseThrow(() -> new RuntimeException("Problem not found id=" + problemId));
+
+            if (problemWithTC.getTestCases() == null || problemWithTC.getTestCases().isEmpty()) {
+                // explicit handling - avoid silent behavior when no testcases exist
+                markSubmissionError(s, "No test cases defined for problem id=" + problemId);
+                return;
+            }
+
+            // Normalize escaped characters from JSON payload
+            String normalizedSource = (s.getSourceCode() == null) ? "" : s.getSourceCode()
                     .replace("\\r\\n", "\n")
                     .replace("\\n", "\n")
                     .replaceAll("\r", "");
             s.setSourceCode(normalizedSource);
+            submissionRepository.save(s); // persist normalized source
 
-            // ✅ Correct parameter order (language, sourceCode, submissionUuid, testCases)
+            // Call JudgeService (language, sourceCode, submissionUuid, testCases)
             var result = judgeService.runSubmissionInDocker(
                     s.getLanguage(),
                     normalizedSource,
                     String.valueOf(s.getId()),
-                    problem.getTestCases()
+                    problemWithTC.getTestCases()
             );
 
             s.setStatus(result.getStatus());
             s.setScore("Accepted".equalsIgnoreCase(result.getStatus()) ? 100 : 0);
 
             submissionRepository.save(s);
+            log.info("Finished submission id={} -> {}", s.getId(), result.getStatus());
         } catch (Exception e) {
-            e.printStackTrace(); // ✅ log for debugging
-            s.setStatus("Error");
-            s.setScore(0);
-            submissionRepository.save(s);
+            // log and save an error status
+            StringWriter sw = new StringWriter();
+            e.printStackTrace(new PrintWriter(sw));
+            String stack = sw.toString();
+
+            log.error("❌ Error while processing submission {}: {} \n{}", s != null ? s.getId() : null, e.getMessage(), stack);
+
+            if (s != null) {
+                s.setStatus("Error");
+                s.setScore(0);
+                submissionRepository.save(s);
+            }
         }
+    }
+
+    private void markSubmissionError(Submission s, String msg) {
+        log.warn("Marking submission {} as error: {}", s.getId(), msg);
+        s.setStatus("Error");
+        s.setScore(0);
+        submissionRepository.save(s);
     }
 }
