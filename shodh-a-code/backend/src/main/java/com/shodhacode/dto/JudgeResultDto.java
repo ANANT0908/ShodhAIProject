@@ -11,7 +11,7 @@ public class JudgeResultDto {
         this.status = status; this.details = details; this.passedCount = passedCount; this.totalCount = totalCount;
     }
 
-    // getters/setters
+
     public String getStatus(){return status;}
     public void setStatus(String status){this.status = status;}
     public String getDetails(){return details;}

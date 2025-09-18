@@ -9,7 +9,7 @@ import java.util.List;
 public class Contest {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // ✅ Auto-generate IDs
+    @GeneratedValue(strategy = GenerationType.IDENTITY) 
     private Long id;
 
     private String name;
@@ -20,10 +20,9 @@ public class Contest {
         fetch = FetchType.LAZY,
         orphanRemoval = true
     )
-    @JsonManagedReference // 🔑 Pairs with @JsonBackReference in Problem
+    @JsonManagedReference 
     private List<Problem> problems;
 
-    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

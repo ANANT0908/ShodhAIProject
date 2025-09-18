@@ -26,14 +26,6 @@ public class JudgeService {
         }
     }
 
-    /**
-     * Runs submission in Docker. Approach:
-     * 1) Create a docker named volume (implicitly by docker run -v <volume>:/workspace)
-     * 2) Run a container to write the source into /workspace and compile it (javac -> .class land in volume)
-     * 3) For each testcase, run a new container mounting the same volume and execute the already-compiled class.
-     *    For each run we only send the testcase input to the java process stdin (no source).
-     * 4) Cleanup the docker volume when finished.
-     */
     public JudgeResultDto runSubmissionInDocker(String language,
                                                 String sourceCode,
                                                 String submissionUuid,
@@ -182,7 +174,6 @@ public class JudgeService {
             rmVol.waitFor(3, TimeUnit.SECONDS);
         } catch (Exception ignored) {}
 
-        // Final status
         String status;
         if (total > 0 && passed == total) status = "Accepted";
         else if (total > 0 && passed == 0) status = "Wrong Answer";

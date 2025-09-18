@@ -26,9 +26,9 @@ public class SubmissionController {
     @Autowired
     private UserRepository userRepository;
 
-    /**
-     * Create a new submission
-     */
+    
+     //Create a new submission
+     
     @PostMapping
     public ResponseEntity<Map<String, Object>> createSubmission(@RequestBody SubmissionRequest body) {
     try {
@@ -51,9 +51,7 @@ public class SubmissionController {
         }
     }
 
-    /**
-     * Get submission status
-     */
+    // Get submission status
     @GetMapping("/{id}")
     public ResponseEntity<?> getSubmission(@PathVariable("id") Long id) {
         try {

@@ -7,7 +7,6 @@ public class SubmissionRequest {
     private String sourceCode;
     private String username;
 
-    // Getters and setters
     public Long getProblemId() {
         return problemId;
     }

@@ -7,7 +7,6 @@ public class SubmitRequest {
     private String language;
     private String sourceCode;
 
-    // getters/setters
     public String getContestId(){return contestId;}
     public void setContestId(String contestId){this.contestId = contestId;}
     public Long getProblemId(){return problemId;}

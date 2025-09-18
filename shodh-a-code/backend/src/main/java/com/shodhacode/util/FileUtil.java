@@ -6,10 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Small utility to list files (names) in a directory, sorted by name.
- * This is intentionally simple and defensive (returns empty list if folder missing).
- */
+
 public class FileUtil {
 
     public static List<String> listFilesSorted(String directory) {

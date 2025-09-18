@@ -49,9 +49,8 @@ public class SubmissionService {
         consumerThread.start();
     }
 
-    /**
-     * Enqueue a submission for judging.
-     */
+    // Enqueue a submission for judging.
+     
     public Submission enqueueSubmission(Long problemId, User user, String language, String sourceCode) {
         Problem problem = problemRepository.findById(problemId)
                 .orElseThrow(() -> new RuntimeException("Problem not found"));
@@ -59,7 +58,7 @@ public class SubmissionService {
         Submission submission = new Submission();
         submission.setProblem(problem);
         submission.setUser(user);
-        submission.setLanguage(language);   // trust client-provided language
+        submission.setLanguage(language);   
         submission.setSourceCode(sourceCode);
         submission.setStatus("Pending");
 
@@ -80,10 +79,6 @@ public class SubmissionService {
         }
     }
 
-    /**
-     * This method runs inside a worker thread. It re-loads the Problem with its testCases
-     * (JOIN FETCH) to avoid LazyInitializationException before passing test cases to the JudgeService.
-     */
     private void processSubmissionTask(Submission s) {
         try {
             log.info("Processing submission id={}", s.getId());
@@ -110,9 +105,8 @@ public class SubmissionService {
             String sourceCode = s.getSourceCode();
             String normalizedSource = (sourceCode == null) ? "" : StringEscapeUtils.unescapeJson(sourceCode);
             s.setSourceCode(normalizedSource);
-            submissionRepository.save(s); // persist normalized source
+            submissionRepository.save(s); 
 
-            // Call JudgeService (language, sourceCode, submissionUuid, testCases)
             var result = judgeService.runSubmissionInDocker(
                     s.getLanguage(),
                     normalizedSource,
@@ -120,7 +114,7 @@ public class SubmissionService {
                     problemWithTC.getTestCases()
             );
 
-            // Use judge-provided status directly (keep behavior identical to original)
+
             s.setStatus(result.getStatus());
             s.setScore("Accepted".equalsIgnoreCase(result.getStatus()) ? 100 : 0);
 

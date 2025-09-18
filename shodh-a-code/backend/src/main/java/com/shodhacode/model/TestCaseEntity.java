@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 @Entity
-@Table(name = "testcase") // ✅ match your DB table
+@Table(name = "testcase") 
 public class TestCaseEntity {
 
     @Id
@@ -19,10 +19,9 @@ public class TestCaseEntity {
 
     @ManyToOne
     @JoinColumn(name = "problem_id", nullable = false)
-    @JsonBackReference // 🔑 Prevents recursion back into Problem
+    @JsonBackReference 
     private Problem problem;
 
-    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

@@ -18,7 +18,7 @@ public class Problem {
 
     @ManyToOne
     @JoinColumn(name = "contest_id", nullable = false)
-    @JsonBackReference // 🔑 Prevents infinite recursion with Contest
+    @JsonBackReference 
     private Contest contest;
 
     @OneToMany(
@@ -27,10 +27,9 @@ public class Problem {
         orphanRemoval = true,
         fetch = FetchType.LAZY
     )
-    @JsonManagedReference // 🔑 Pairs with @JsonBackReference in TestCaseEntity
+    @JsonManagedReference 
     private List<TestCaseEntity> testCases;
 
-    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

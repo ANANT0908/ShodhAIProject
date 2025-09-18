@@ -4,7 +4,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://backend:8080/api/:path*', // backend service from docker-compose
+        destination: 'http://backend:8080/api/:path*', 
       },
     ]
   },

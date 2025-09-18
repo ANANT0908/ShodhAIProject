@@ -15,13 +15,12 @@ export default function ContestProblems() {
   const [status, setStatus] = useState(null)
   const [leaderboard, setLeaderboard] = useState([])
 
-  // Load problems
   useEffect(() => {
     if (!id) return
     fetchProblems(id).then(setProblems).catch(console.error)
   }, [id])
 
-  // Leaderboard polling every 20s
+
   useEffect(() => {
     if (!id) return
     const load = () => fetchLeaderboard(id).then(setLeaderboard).catch(console.error)
@@ -39,7 +38,7 @@ export default function ContestProblems() {
     return `// Problem: ${pr?.title || ''}\n\npublic class Solution {\n  public static void main(String[] args) {\n    // write your solution here\n  }\n}`
   }
 
-  // Submit code
+
   async function handleSubmit() {
     if (!selected) return
     const username = localStorage.getItem('username') || 'guest'
@@ -60,7 +59,7 @@ export default function ContestProblems() {
     }
   }
 
-  // Poll status until final
+  
   function pollStatus(subId) {
     let tries = 0
     const interval = setInterval(async () => {
@@ -75,13 +74,12 @@ export default function ContestProblems() {
         clearInterval(interval)
       }
       tries++
-      if (tries > 30) clearInterval(interval) // stop after ~1min
+      if (tries > 30) clearInterval(interval) 
     }, 3000)
   }
 
   return (
     <div style={{display:'flex', gap:16, alignItems:'flex-start'}}>
-      {/* Problems List */}
       <div style={{width:320}}>
         <div className="card"><h3>Problems</h3></div>
         <div style={{marginTop:12, display:'grid', gap:8}}>
@@ -94,7 +92,6 @@ export default function ContestProblems() {
         </div>
       </div>
 
-      {/* Editor + status */}
       <div style={{flex:1}}>
         {!selected ? <div className="card muted">Select a problem</div> : (
           <>
@@ -113,7 +110,6 @@ export default function ContestProblems() {
         )}
       </div>
 
-      {/* Leaderboard */}
       <div style={{width:280}}>
         <div className="card">
           <h3>Leaderboard</h3>

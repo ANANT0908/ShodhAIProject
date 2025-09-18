@@ -1,4 +1,3 @@
-// File: backend/src/main/java/com/shodhacode/model/Submission.java
 package com.shodhacode.model;
 
 import jakarta.persistence.*;
@@ -36,7 +35,7 @@ public class Submission {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // Getters and Setters
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

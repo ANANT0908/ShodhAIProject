@@ -1,4 +1,3 @@
-// File: backend/src/main/java/com/shodhacode/model/User.java
 package com.shodhacode.model;
 
 import jakarta.persistence.*;
@@ -19,13 +18,12 @@ public class User {
     @JsonManagedReference
     private List<Submission> submissions = new ArrayList<>();
 
-    // Constructors
     public User() {}
     public User(String username) {
         this.username = username;
     }
 
-    // Getters and Setters
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

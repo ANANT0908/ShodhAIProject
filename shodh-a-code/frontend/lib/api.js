@@ -1,4 +1,4 @@
-// File: frontend/lib/api.js
+
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE || ''
 
 export async function fetchContests() {
